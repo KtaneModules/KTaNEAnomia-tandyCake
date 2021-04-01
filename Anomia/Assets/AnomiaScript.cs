@@ -145,7 +145,7 @@ public class AnomiaScript : MonoBehaviour {
         {
             tempsprites[i] = allModules[i];
         }
-        if (isFighting) tempsprites[3] = allModules.Where(x => CheckValidity(opponent, x.name.Replace('_', '’'))).PickRandom();
+        if (isFighting) tempsprites[3] = allModules.Where(x => x != null && CheckValidity(opponent, x.name.Replace('_', '’'))).PickRandom();
         else tempsprites[3] = allModules[3];
         tempsprites.Shuffle();
         for (int i = 0; i < 4; i++)
@@ -153,7 +153,7 @@ public class AnomiaScript : MonoBehaviour {
             sprites[i].sprite = tempsprites[i];
         }
 
-        if (isFighting)
+        if (isFighting) 
         {
             List<string> names = new List<string>();
             for (int i = 0; i < 4; i++)
@@ -201,8 +201,8 @@ public class AnomiaScript : MonoBehaviour {
             case 5: if (!name.Contains(' ')) return true; break;
             case 6: if ("ABCDEFGHIJKLM".Contains(name.First())) return true; break;
             case 7: if ("ABCDEFGHIJKLM".Contains(name.Last())) return true; break;
-            case 8: if (name.Where(x => alphabet.Contains(x)).Distinct().Count() == name.Where(x => alphabet.Contains(x)).Count()) return true; break;
-            case 9: if (name.Where(x => alphabet.Contains(x)).Distinct().Count() != name.Where(x => alphabet.Contains(x)).Count()) return true; break;
+            case 8: if (name.Where(x => alphabet.Contains(x)).Distinct().Count() != name.Where(x => alphabet.Contains(x)).Count()) return true; break;
+            case 9: if (name.Where(x => alphabet.Contains(x)).Distinct().Count() == name.Where(x => alphabet.Contains(x)).Count()) return true; break;
         }
         return false;
     }
@@ -237,7 +237,7 @@ public class AnomiaScript : MonoBehaviour {
         stringIndices[pos] = UnityEngine.Random.Range(0, allTexts.Length);
         texts[faceAffected].text = allTexts[stringIndices[pos]];
         symbols[faceAffected].sprite = allSymbols[symbolIndices[pos]];
-        //if (stage != 0) Debug.LogFormat("[Anomia #{0}] The {1} card flipped over. Its symbol is {2} and its message is {3}", moduleId, directions[pos], allSymbols[symbolIndices[pos]].name, allTexts[stringIndices[pos]]);
+        if (stage != 0 && !moduleSolved) Debug.LogFormat("[Anomia #{0}] The {1} card flipped over. Its symbol is {2} and its message is {3}", moduleId, directions[pos], allSymbols[symbolIndices[pos]].name, allTexts[stringIndices[pos]]);
         isAnimating[pos] = true;
         showingBack[pos] = !showingBack[pos];
         Transform TF = cards[pos].transform;
@@ -283,7 +283,7 @@ public class AnomiaScript : MonoBehaviour {
     
     string SpriteNames(int pos)
     {
-        return sprites[pos].sprite.name.Replace('_', ' ');
+        return sprites[pos].sprite.name.Replace('_', '’');
     }
 
     #pragma warning disable 414
