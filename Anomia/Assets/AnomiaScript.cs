@@ -29,7 +29,7 @@ public class AnomiaScript : MonoBehaviour {
     int moduleId;
     private bool moduleSolved;
 
-    private string[] allTexts = { "Starts with a\nvowel", "Ends with a\nvowel", "Has at least\n1 space", "Ends with the\nletter 's'", "Does not\ncontain 'e'", "Has no spaces", "Starts with a\nletter from A-M", "Ends in a\nletter from A-M", "Has repeated\nletters", "Has no\nrepeated letters" };
+    private string[] allTexts = new string[] { "Starts with a\nvowel", "Ends with a\nvowel", "Has at least\n1 space", "Ends with the\nletter 's'", "Does not\ncontain 'e'", "Has no spaces", "Starts with a\nletter from A-M", "Ends in a\nletter from A-M", "Has repeated\nletters", "Has no\nrepeated letters" };
     string vowels = "AEIOU";
     string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     string[] directions = new string[] { "top", "right", "bottom", "left" };
@@ -77,7 +77,7 @@ public class AnomiaScript : MonoBehaviour {
         }
         Debug.LogFormat("[Anomia #{0}] INITIAL DISPLAY", moduleId);
         Debug.LogFormat("[Anomia #{0}] The initial cards have symbols {1}, {2}, {3}, {4}", moduleId, allSymbols[symbolIndices[0]].name, allSymbols[symbolIndices[1]].name, allSymbols[symbolIndices[2]].name, allSymbols[symbolIndices[3]].name);
-        Debug.LogFormat("[Anomia #{0}] The initial messages are {1}, {2}, {3}, {4}", moduleId, allTexts[stringIndices[0]].Replace('\n', ' '), allTexts[stringIndices[1]].Replace('\n', ' '), allTexts[stringIndices[2]].Replace('\n', ' '), allTexts[stringIndices[3]].Replace('\n', ' '));
+        Debug.LogFormat("[Anomia #{0}] The initial messages are {1}, {2}, {3}, {4}", moduleId, allTexts[0].Replace('\n', ' '), allTexts[0].Replace('\n', ' '), allTexts[1].Replace('\n', ' '), allTexts[2].Replace('\n', ' '), allTexts[3].Replace('\n', ' '));
         timer = StartCoroutine(Timer());
         StopCoroutine(timer);
     }
@@ -158,7 +158,8 @@ public class AnomiaScript : MonoBehaviour {
             List<string> names = new List<string>();
             for (int i = 0; i < 4; i++)
             {
-                if (CheckValidity(opponent, sprites[i].sprite.name.Replace('_', '’'))) names.Add(sprites[i].sprite.name);
+                if (CheckValidity(opponent, SpriteNames(i)))
+                        names.Add(SpriteNames(i));
             }
             Debug.LogFormat("[Anomia #{0}] The displayed module names are {1}, {2}, {3}, and {4}", moduleId, SpriteNames(0), SpriteNames(1), SpriteNames(2), SpriteNames(3));
             Debug.LogFormat("[Anomia #{0}] The correct possible modules are {1}", moduleId, names.Join(", "));
@@ -237,7 +238,7 @@ public class AnomiaScript : MonoBehaviour {
         stringIndices[pos] = UnityEngine.Random.Range(0, allTexts.Length);
         texts[faceAffected].text = allTexts[stringIndices[pos]];
         symbols[faceAffected].sprite = allSymbols[symbolIndices[pos]];
-        if (stage != 0 && !moduleSolved) Debug.LogFormat("[Anomia #{0}] The {1} card flipped over. Its symbol is {2} and its message is {3}", moduleId, directions[pos], allSymbols[symbolIndices[pos]].name, allTexts[stringIndices[pos]]);
+        if (stage != 0 && !moduleSolved) Debug.LogFormat("[Anomia #{0}] The {1} card flipped over. Its symbol is {2} and its message is {3}", moduleId, directions[pos], allSymbols[symbolIndices[pos]].name, allTexts[stringIndices[pos]].Replace('\n',' '));
         isAnimating[pos] = true;
         showingBack[pos] = !showingBack[pos];
         Transform TF = cards[pos].transform;
@@ -285,9 +286,8 @@ public class AnomiaScript : MonoBehaviour {
     {
         return sprites[pos].sprite.name.Replace('_', '’');
     }
-
     #pragma warning disable 414
-    private readonly string TwitchHelpMessage = @"Use !{0} press 1/2/3/4 to press the button in that position in reading order.";
+    private readonly string TwitchHelpMessage = @"Use !{0} press 1/2/3/4 to press the button in that position in reading order. Use {0} next to press the arrow buton. On TP, the timer is extended to 25 seconds.";
     #pragma warning restore 414
 
     IEnumerator ProcessTwitchCommand (string input)
@@ -315,10 +315,7 @@ public class AnomiaScript : MonoBehaviour {
         {
             if (!isFighting)
             {
-                if (isAnimating.Any(x => x))
-                {
-                    yield return true;
-                }
+                if (isAnimating.Any(x => x)) yield return true;
                 nextButton.OnInteract();
                 yield return new WaitForSeconds(0.1f);
             }
