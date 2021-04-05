@@ -168,7 +168,6 @@ public class AnomiaScript : MonoBehaviour {
 
     void CheckFights()
     {
-        Debug.Log(stage);
         if (symbolIndices.Distinct().Count() != 4)
         {
             isFighting = true;
@@ -271,12 +270,12 @@ public class AnomiaScript : MonoBehaviour {
             }
             if (currentTime > timeLimit)
             {
+                StopCoroutine(timer);
                 GetComponent<KMBombModule>().HandleStrike();
                 Debug.LogFormat("[Anomia #{0}] Timer expired, strike incurred.", moduleId);
                 StartCoroutine(MonkiFlip(fighter));
                 CheckFights();
                 GenerateIcons();
-                StopCoroutine(timer);
             }
             yield return null;
         }
