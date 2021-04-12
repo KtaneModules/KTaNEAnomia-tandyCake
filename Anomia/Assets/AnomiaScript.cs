@@ -49,7 +49,7 @@ public class AnomiaScript : MonoBehaviour {
     float warning = 3f;
     private Coroutine timer;
 
-    private bool TwitchPlaysActive = false;
+    bool TwitchPlaysActive;
     float TPTime = 25f;
     float TPWarning = 7f;
 
@@ -57,9 +57,7 @@ public class AnomiaScript : MonoBehaviour {
     {
         moduleId = moduleIdCounter++;
         foreach (KMSelectable button in iconButtons) 
-        {
             button.OnInteract += delegate () { Press(Array.IndexOf(iconButtons, button)); return false; };
-        }
         nextButton.OnInteract += delegate () { Next(); return false; };
         numbers.Shuffle();
     }
@@ -76,8 +74,8 @@ public class AnomiaScript : MonoBehaviour {
             StartCoroutine(MonkiFlip(i));
         }
         Debug.LogFormat("[Anomia #{0}] INITIAL DISPLAY", moduleId);
-        Debug.LogFormat("[Anomia #{0}] The initial cards have symbols {1}, {2}, {3}, {4}", moduleId, allSymbols[symbolIndices[0]].name, allSymbols[symbolIndices[1]].name, allSymbols[symbolIndices[2]].name, allSymbols[symbolIndices[3]].name);
-        Debug.LogFormat("[Anomia #{0}] The initial messages are {1}, {2}, {3}, {4}", moduleId, allTexts[0].Replace('\n', ' '), allTexts[0].Replace('\n', ' '), allTexts[1].Replace('\n', ' '), allTexts[2].Replace('\n', ' '), allTexts[3].Replace('\n', ' '));
+        Debug.LogFormat("[Anomia #{0}] The initial cards have symbols {1}.", moduleId, symbolIndices.Select(x => allSymbols[x].name).Join(", "));
+        Debug.LogFormat("[Anomia #{0}] The initial messages are {1}.", moduleId, allTexts.Select(x => x.Replace('\n', ' ')).Join(", "));
         timer = StartCoroutine(Timer());
         StopCoroutine(timer);
     }
@@ -138,15 +136,14 @@ public class AnomiaScript : MonoBehaviour {
 
     void GenerateIcons()
     {
-        bool isValid = false;
         allModules.Shuffle();
         Sprite[] tempsprites = new Sprite[4];
         for (int i = 0; i < 3; i++)
         {
             tempsprites[i] = allModules[i];
         }
-        if (isFighting) tempsprites[3] = allModules.Where(x => x != null && CheckValidity(opponent, x.name.Replace('_', '’'))).PickRandom();
-        else tempsprites[3] = allModules[3];
+        if (isFighting) tempsprites[3] = allModules.Where(x => x != null && CheckValidity(opponent, x.name.Replace('_', '’'))).PickRandom();  
+        else tempsprites[3] = allModules[3]; //If we are in a match, makes sure at least one icon is valid. Otherwise, generate 4 random icons.
         tempsprites.Shuffle();
         for (int i = 0; i < 4; i++)
         {

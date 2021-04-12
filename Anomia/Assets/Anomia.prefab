@@ -5299,13 +5299,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Parent: {fileID: 114835963872257200}
   Children:
+  - {fileID: 0}
   - {fileID: 114410253794083166}
   - {fileID: 114862530399150748}
+  - {fileID: 0}
   - {fileID: 114322174885616904}
   - {fileID: 114911037539896416}
   - {fileID: 114299852522980018}
-  IsPassThrough: 0
-  ChildRowLength: 0
+  - {fileID: 0}
+  - {fileID: 0}
+  IsPassThrough: 1
+  ChildRowLength: 3
   Highlight: {fileID: 114613004834759464}
   SelectableColliders: []
   DefaultSelectableIndex: 0
