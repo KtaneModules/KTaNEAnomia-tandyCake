@@ -115,10 +115,14 @@ public class AnomiaScript : MonoBehaviour {
         Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, nextButton.transform);
 
         if (moduleSolved || isAnimating.Any(x => x)) return;
-        if (stage == 12) StartCoroutine(Solve());
         else if (!isFighting)
         {
 
+            if (stage == 12)
+            {
+                StartCoroutine(Solve());
+                return;
+            }
             StartCoroutine(MonkiFlip(stage % 4));
             backings[stage % 4].GetComponent<MeshRenderer>().material = backingColors[1];
             backings[(stage + 3) % 4].GetComponent<MeshRenderer>().material = backingColors[0];
