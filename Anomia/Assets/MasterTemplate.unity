@@ -298,6 +298,11 @@ Prefab:
       propertyPath: m_RootOrder
       value: 3
       objectReference: {fileID: 0}
+    - target: {fileID: 114368687464084088, guid: 4b417785b58950d4b906b8924a39e03e,
+        type: 2}
+      propertyPath: TwitchPlaysActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
   m_ParentPrefab: {fileID: 100100000, guid: 4b417785b58950d4b906b8924a39e03e, type: 2}
   m_IsPrefabParent: 0

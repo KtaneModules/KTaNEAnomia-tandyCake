@@ -49,7 +49,7 @@ public class AnomiaScript : MonoBehaviour {
     float warning = 3f;
     private Coroutine timer;
 
-    bool TwitchPlaysActive;
+    public bool TwitchPlaysActive;
     float TPTime = 25f;
     float TPWarning = 7f;
 
