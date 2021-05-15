@@ -33,7 +33,7 @@ public class AnomiaScript : MonoBehaviour {
     string vowels = "AEIOU";
     string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     string[] directions = new string[] { "top", "right", "bottom", "left" };
-    int[] numbers = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    int[] numbers = Enumerable.Range(0, 8).ToArray();
 
     int[] symbolIndices = new int[4];
     int[] stringIndices = new int[4];
@@ -50,11 +50,12 @@ public class AnomiaScript : MonoBehaviour {
     private Coroutine timer;
 
     public bool TwitchPlaysActive;
-    float TPTime = 25f;
+    float TPTime = 30f;
     float TPWarning = 7f;
 
     void Awake ()
     {
+        allModules = allModules.Where(x => x != null).ToArray();
         moduleId = moduleIdCounter++;
         foreach (KMSelectable button in iconButtons) 
             button.OnInteract += delegate () { Press(Array.IndexOf(iconButtons, button)); return false; };
@@ -64,11 +65,7 @@ public class AnomiaScript : MonoBehaviour {
     
     void Start()
     {
-        if (TwitchPlaysActive)
-        {
-            timeLimit = TPTime;
-            warning = TPWarning;
-        }
+        StartCoroutine(CheckTP());
         for (int i = 0; i < 4; i++)
         {
             StartCoroutine(MonkiFlip(i));
@@ -286,12 +283,23 @@ public class AnomiaScript : MonoBehaviour {
     {
         return sprites[pos].sprite.name.Replace('_', '’');
     }
+    IEnumerator CheckTP()
+    {
+        yield return null;
+        if (TwitchPlaysActive)
+        {
+            timeLimit = TPTime;
+            warning = TPWarning;
+            Debug.Log("tp code fired");
+        }
+    }
     #pragma warning disable 414
-    private readonly string TwitchHelpMessage = @"Use !{0} press 1/2/3/4 to press the button in that position in reading order. Use {0} next to press the arrow buton. On TP, the timer is extended to 25 seconds.";
+    private readonly string TwitchHelpMessage = @"Use !{0} press 1/2/3/4 to press the button in that position in reading order. Use {0} next to press the arrow buton. On TP, the timer is extended to 30 seconds.";
     #pragma warning restore 414
 
     IEnumerator ProcessTwitchCommand (string input)
     {
+        Debug.Log(timeLimit);
         string Command = input.Trim().ToUpperInvariant();
         List<string> parameters = Command.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         string[] possibleCommands = { "1", "2", "3", "4", "TL", "TR", "BL", "BR" };
