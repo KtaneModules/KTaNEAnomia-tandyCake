@@ -60,6 +60,7 @@ public class AnomiaScript : MonoBehaviour {
         foreach (KMSelectable button in iconButtons) 
             button.OnInteract += delegate () { Press(Array.IndexOf(iconButtons, button)); return false; };
         nextButton.OnInteract += delegate () { Next(); return false; };
+        GetComponent<KMBombModule>().OnActivate += delegate () { StartCoroutine(CheckTP()); };
         numbers.Shuffle();
     }
     
