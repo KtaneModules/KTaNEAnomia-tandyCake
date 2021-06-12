@@ -10,6 +10,7 @@ public class AnomiaScript : MonoBehaviour {
 
     public KMBombInfo Bomb;
     public KMAudio Audio;
+    public KMGameInfo GameInfo;
 
     public KMSelectable nextButton;
 
@@ -49,9 +50,11 @@ public class AnomiaScript : MonoBehaviour {
     float warning = 3f;
     private Coroutine timer;
 
+    private bool lightsAreOn = true;
     public bool TwitchPlaysActive;
     float TPTime = 30f;
-    float TPWarning = 7f;
+    float TPWarning = 8f;
+    float flipSpeed = 12f;
 
     void Awake ()
     {
@@ -61,21 +64,26 @@ public class AnomiaScript : MonoBehaviour {
             button.OnInteract += delegate () { Press(Array.IndexOf(iconButtons, button)); return false; };
         nextButton.OnInteract += delegate () { Next(); return false; };
         GetComponent<KMBombModule>().OnActivate += delegate () { StartCoroutine(CheckTP()); };
+        GameInfo.OnLightsChange += delegate (bool state) {
+            if (lightsAreOn != state)
+            {
+                if (!state)
+                    Debug.LogFormat("[Anomia #{0}] Because the lights have turned off, the timer is now paused.", moduleId);
+                else
+                    Debug.LogFormat("[Anomia #{0}] Lights have turned back on, timer resumed.", moduleId);
+                lightsAreOn = state;
+            }
+        };
         numbers.Shuffle();
     }
     
     void Start()
     {
-        StartCoroutine(CheckTP());
         for (int i = 0; i < 4; i++)
-        {
             StartCoroutine(MonkiFlip(i));
-        }
         Debug.LogFormat("[Anomia #{0}] INITIAL DISPLAY", moduleId);
         Debug.LogFormat("[Anomia #{0}] The initial cards have symbols {1}.", moduleId, symbolIndices.Select(x => allSymbols[x].name).Join(", "));
         Debug.LogFormat("[Anomia #{0}] The initial messages are {1}.", moduleId, allTexts.Select(x => x.Replace('\n', ' ')).Join(", "));
-        timer = StartCoroutine(Timer());
-        StopCoroutine(timer);
     }
 
     void Press(int pos)
@@ -83,7 +91,8 @@ public class AnomiaScript : MonoBehaviour {
         iconButtons[pos].AddInteractionPunch(0.3f);
         Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, iconButtons[pos].transform);
 
-        StopCoroutine(timer);
+        if (timer != null)
+            StopCoroutine(timer);
         if (moduleSolved || isAnimating.Any(x => x)) return;
         if (!isFighting)
         {
@@ -141,16 +150,12 @@ public class AnomiaScript : MonoBehaviour {
         allModules.Shuffle();
         Sprite[] tempsprites = new Sprite[4];
         for (int i = 0; i < 3; i++)
-        {
             tempsprites[i] = allModules[i];
-        }
         if (isFighting) tempsprites[3] = allModules.Where(x => x != null && CheckValidity(opponent, x.name.Replace('_', '’'))).PickRandom();  
         else tempsprites[3] = allModules[3]; //If we are in a match, makes sure at least one icon is valid. Otherwise, generate 4 random icons.
         tempsprites.Shuffle();
         for (int i = 0; i < 4; i++)
-        {
             sprites[i].sprite = tempsprites[i];
-        }
 
         if (isFighting) 
         {
@@ -221,9 +226,7 @@ public class AnomiaScript : MonoBehaviour {
         GetComponent<KMBombModule>().HandlePass();
         Audio.PlaySoundAtTransform("Solve", transform);
         for (int i = 0; i < 4; i++)
-        {
             backings[i].GetComponent<MeshRenderer>().material = backingColors[2];
-        }
     }
 
     IEnumerator MonkiFlip(int pos)
@@ -242,16 +245,18 @@ public class AnomiaScript : MonoBehaviour {
         Transform TF = cards[pos].transform;
         while (TF.localPosition.z > -6)
         {
-            TF.localPosition += new Vector3(0, 0, -0.2f);
-            TF.localEulerAngles += new Vector3(0, -3f, 0);
+            TF.localPosition -= new Vector3(0, 0, flipSpeed * Time.deltaTime);
+            TF.localEulerAngles -= new Vector3(0, 15 * flipSpeed * Time.deltaTime, 0);
             yield return null;
         }
-        while (TF.localPosition.z < -0.05f)
+        while (TF.localPosition.z + 10*Time.deltaTime < -0.05f)
         {
-            TF.localPosition -= new Vector3(0, 0, -0.2f);
-            TF.localEulerAngles += new Vector3(0, -3f, 0);
+            TF.localPosition += new Vector3(0, 0, flipSpeed * Time.deltaTime);
+            TF.localEulerAngles -= new Vector3(0, 15 * flipSpeed * Time.deltaTime, 0);
             yield return null;
         }
+        TF.localPosition = new Vector3(0, 0, -0.05f);
+        TF.localEulerAngles = new Vector3(0, showingBack[pos] ? 180 : 0, 0);
         isAnimating[pos] = false;
     }
 
@@ -261,7 +266,8 @@ public class AnomiaScript : MonoBehaviour {
         bool playedWarning = false;
         while (true)
         {
-            currentTime += Time.deltaTime;
+            if (lightsAreOn)
+                currentTime += Time.deltaTime;
             if (currentTime > timeLimit - warning && !playedWarning)
             {
                 Audio.PlaySoundAtTransform("Warning", transform);
@@ -292,6 +298,7 @@ public class AnomiaScript : MonoBehaviour {
             timeLimit = TPTime;
             warning = TPWarning;
             Debug.Log("tp code fired");
+            
         }
     }
     #pragma warning disable 414
@@ -304,13 +311,13 @@ public class AnomiaScript : MonoBehaviour {
         string Command = input.Trim().ToUpperInvariant();
         List<string> parameters = Command.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         string[] possibleCommands = { "1", "2", "3", "4", "TL", "TR", "BL", "BR" };
-        if (Regex.IsMatch(Command, @"^(press)?\s*([1-4]|([TB][LR]))$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase))
+        if (Regex.IsMatch(Command, @"^(PRESS)?\s*([1-4]|([TB][LR]))$"))
         {
             yield return null;
             iconButtons[Array.IndexOf(possibleCommands, parameters.Last()) % 4].OnInteract();
             yield return new WaitForSeconds(0.1f);
         }
-        else if (parameters.Count == 1 && parameters.First() == "NEXT")
+        else if (Command == "NEXT")
         {
             yield return null;
             nextButton.OnInteract();

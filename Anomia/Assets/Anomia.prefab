@@ -1148,6 +1148,7 @@ GameObject:
   - component: {fileID: 4132681934710338}
   - component: {fileID: 114249651211608312}
   - component: {fileID: 114729710133309036}
+  - component: {fileID: 114346076334062434}
   - component: {fileID: 114840354016105686}
   - component: {fileID: 114835963872257200}
   - component: {fileID: 114368687464084088}
@@ -3830,6 +3831,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShaderNames:
   - GUI/KT 3D Text Diffuse
+--- !u!114 &114346076334062434
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 100100000}
+  m_GameObject: {fileID: 1985228510189352}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -271661043, guid: 45b809be76fd7a3468b6f517bced6f28, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &114346166409419236
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -3869,6 +3881,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Bomb: {fileID: 114729710133309036}
   Audio: {fileID: 114249651211608312}
+  GameInfo: {fileID: 114346076334062434}
   nextButton: {fileID: 114299852522980018}
   cards:
   - {fileID: 1391703518256146}
