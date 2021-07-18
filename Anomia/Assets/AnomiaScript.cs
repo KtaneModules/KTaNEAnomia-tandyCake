@@ -46,15 +46,43 @@ public class AnomiaScript : MonoBehaviour {
     int opponent; 
     int stage = 0;
 
-    float timeLimit = 10f;
-    float warning = 3f;
     private Coroutine timer;
 
     private bool lightsAreOn = true;
     public bool TwitchPlaysActive;
-    float TPTime = 30f;
-    float TPWarning = 8f;
-    float flipSpeed = 12f;
+    float timeLimit, warning, TPTime, TPWarning;
+    float flipSpeed = 12;
+
+    #region Modsettings
+    class AnomiaSettings
+    {
+        public float timer = 10;
+        public float warningTime = 3;
+    }
+    AnomiaSettings settings = new AnomiaSettings();
+    private static Dictionary<string, object>[] TweaksEditorSettings = new Dictionary<string, object>[]
+    {
+          new Dictionary<string, object>
+          {
+            { "Filename", "AnomiaSettings.json"},
+            { "Name", "Anomia" },
+            { "Listings", new List<Dictionary<string, object>>
+                {
+                  new Dictionary<string, object>
+                  {
+                    { "Key", "timer" },
+                    { "Text", "Length of the module's timer."}
+                  },
+                  new Dictionary<string, object>
+                  {
+                    { "Key", "warningTime" },
+                    { "Text", "Time until the module will play a warning tone."}
+                  }
+                }
+            }
+          }
+    };
+    #endregion
 
     void Awake ()
     {
@@ -63,7 +91,14 @@ public class AnomiaScript : MonoBehaviour {
         foreach (KMSelectable button in iconButtons) 
             button.OnInteract += delegate () { Press(Array.IndexOf(iconButtons, button)); return false; };
         nextButton.OnInteract += delegate () { Next(); return false; };
-        GetComponent<KMBombModule>().OnActivate += delegate () { StartCoroutine(CheckTP()); };
+        GetComponent<KMBombModule>().OnActivate += delegate () 
+        {
+            if (TwitchPlaysActive)
+            {
+                timeLimit = 30;
+                warning = 8;
+            }
+        };
         GameInfo.OnLightsChange += delegate (bool state) {
             if (lightsAreOn != state)
             {
@@ -75,6 +110,12 @@ public class AnomiaScript : MonoBehaviour {
             }
         };
         numbers.Shuffle();
+        ModConfig<AnomiaSettings> config = new ModConfig<AnomiaSettings>("AnomiaSettings");
+        settings = config.Read();
+        config.Write(settings);
+        timeLimit = settings.timer <= 0 ? 10 : settings.timer;
+        warning = settings.warningTime <= 0 || settings.warningTime > timeLimit ? 0.3f * timeLimit : settings.warningTime;
+        
     }
     
     void Start()
@@ -290,17 +331,7 @@ public class AnomiaScript : MonoBehaviour {
     {
         return sprites[pos].sprite.name.Replace('_', '’');
     }
-    IEnumerator CheckTP()
-    {
-        yield return null;
-        if (TwitchPlaysActive)
-        {
-            timeLimit = TPTime;
-            warning = TPWarning;
-            Debug.Log("tp code fired");
-            
-        }
-    }
+
     #pragma warning disable 414
     private readonly string TwitchHelpMessage = @"Use !{0} press 1/2/3/4 to press the button in that position in reading order. Use {0} next to press the arrow buton. On TP, the timer is extended to 30 seconds.";
     #pragma warning restore 414
