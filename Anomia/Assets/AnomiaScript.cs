@@ -362,7 +362,8 @@ public class AnomiaScript : MonoBehaviour {
         {
             if (!isFighting)
             {
-                if (isAnimating.Any(x => x)) yield return true;
+                while (isAnimating.Any(x => x)) 
+                    yield return true;
                 nextButton.OnInteract();
                 yield return new WaitForSeconds(0.1f);
             }
