@@ -16,6 +16,6 @@ MonoBehaviour:
   author: Danny7007
   description: "Don\u2019t mix with bleach.\r\n\nModule Created by Danny7007\r\nmoduleID:
     anomia\nManual can be found on ktane.timwi.de\r\n"
-  version: 1.0.0
+  version: 1.4.0
   outputFolder: build
   previewImage: {fileID: 2800000, guid: cc38c586dfa58a94d964742c8cf2d1e8, type: 3}

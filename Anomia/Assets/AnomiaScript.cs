@@ -10,6 +10,7 @@ public class AnomiaScript : MonoBehaviour {
 
     public KMBombInfo Bomb;
     public KMAudio Audio;
+    public KMBombModule Module;
     public KMGameInfo GameInfo;
 
     public KMSelectable nextButton;
@@ -30,7 +31,7 @@ public class AnomiaScript : MonoBehaviour {
     int moduleId;
     private bool moduleSolved;
 
-    private string[] allTexts = new string[] { "Starts with a\nvowel", "Ends with a\nvowel", "Has at least\n1 space", "Ends with the\nletter 's'", "Does not\ncontain 'e'", "Has no spaces", "Starts with a\nletter from A-M", "Ends in a\nletter from A-M", "Has repeated\nletters", "Has no\nrepeated letters" };
+    private string[] allTexts = new string[] { "Starts with a\nvowel", "Ends with a\nvowel", "Has at least\n1 space", "Ends with the\nletter 's'", "Does not\ncontain 'e'", "Has no spaces", "Starts with a\nletter from A-M", "Ends in a\nletter from A-M", "Contains fewer\nthan 8 letters", "Contains more\nthan 10 letters" };
     string vowels = "AEIOU";
     string alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     string[] directions = new string[] { "top", "right", "bottom", "left" };
@@ -42,15 +43,15 @@ public class AnomiaScript : MonoBehaviour {
     bool[] isAnimating = new bool[4];
 
     bool isFighting;
-    int fighter;
-    int opponent; 
-    int stage = 0;
+    int fighter, opponent, stage;
 
     private Coroutine timer;
 
     private bool lightsAreOn = true;
     public bool TwitchPlaysActive;
-    float timeLimit, warning, TPTime, TPWarning;
+    float timeLimit, warning;
+    const float TPTime = 30;
+    const float TPWarning = 8;
     float flipSpeed = 12;
 
     #region Modsettings
@@ -86,19 +87,27 @@ public class AnomiaScript : MonoBehaviour {
 
     void Awake ()
     {
+        //Removes all null entries from the allModules array, in the case that an icon gets deleted.
         allModules = allModules.Where(x => x != null).ToArray();
         moduleId = moduleIdCounter++;
-        foreach (KMSelectable button in iconButtons) 
-            button.OnInteract += delegate () { Press(Array.IndexOf(iconButtons, button)); return false; };
+        for (int i = 0; i < 4; i++)
+        {
+            int ix = i;
+            iconButtons[ix].OnInteract += delegate () { IconPress(ix); return false; };
+        }
         nextButton.OnInteract += delegate () { Next(); return false; };
-        GetComponent<KMBombModule>().OnActivate += delegate () 
+        
+        //Changes the timers if TP is active.
+        Module.OnActivate += delegate () 
         {
             if (TwitchPlaysActive)
             {
-                timeLimit = 30;
-                warning = 8;
+                timeLimit = TPTime;
+                warning = TPWarning;
             }
         };
+
+        //Connect into when the room's lights change and sets a variable accordingly.
         GameInfo.OnLightsChange += delegate (bool state) {
             if (lightsAreOn != state)
             {
@@ -109,50 +118,64 @@ public class AnomiaScript : MonoBehaviour {
                 lightsAreOn = state;
             }
         };
+        //Shuffles an array of numbers 0-7. These will be used for the initial generation such that no fights happen immediately.0
         numbers.Shuffle();
+
+        //Sets up the modsettings.
         ModConfig<AnomiaSettings> config = new ModConfig<AnomiaSettings>("AnomiaSettings");
         settings = config.Read();
         config.Write(settings);
-        timeLimit = settings.timer <= 0 ? 10 : settings.timer;
-        warning = settings.warningTime <= 0 || settings.warningTime > timeLimit ? 0.3f * timeLimit : settings.warningTime;
-        
+        timeLimit = settings.timer <= 0 ? 10 : settings.timer; //The timelimit cannot be <= 0.
+        warning = settings.warningTime <= 0 || settings.warningTime > timeLimit ? 0.3f * timeLimit : settings.warningTime; //The warning time cannot be <= 0, and it cannot be longer than the time limit.
     }
     
     void Start()
     {
         for (int i = 0; i < 4; i++)
-            StartCoroutine(MonkiFlip(i));
+            StartCoroutine(FlipCard(i));//Flips all cards over to their initial states.
         Debug.LogFormat("[Anomia #{0}] INITIAL DISPLAY", moduleId);
         Debug.LogFormat("[Anomia #{0}] The initial cards have symbols {1}.", moduleId, symbolIndices.Select(x => allSymbols[x].name).Join(", "));
         Debug.LogFormat("[Anomia #{0}] The initial messages are {1}.", moduleId, allTexts.Select(x => x.Replace('\n', ' ')).Join(", "));
     }
 
-    void Press(int pos)
+    void IconPress(int pos)
     {
         iconButtons[pos].AddInteractionPunch(0.3f);
         Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, iconButtons[pos].transform);
 
+        //Turns off the timer.
         if (timer != null)
             StopCoroutine(timer);
-        if (moduleSolved || isAnimating.Any(x => x)) return;
-        if (!isFighting)
+
+        //If the module is solved, or any card is in the process of flipping over, return now.
+        if (moduleSolved || isAnimating.Any(x => x)) 
+            return;
+        //If there's no match going on, nothing is correct. Strike anyways.
+        if (!isFighting) 
         {
-            GetComponent<KMBombModule>().HandleStrike();
+            Module.HandleStrike();
             Debug.LogFormat("[Anomia #{0}] Attempted to press a module while no match was active. Strike incurred.", moduleId);
         }
+        //Otherwise, we *are* fighting, so check the validity of the pressed icon against the opponent's card. 
         else if (CheckValidity(opponent, SpriteNames(pos)))
         {
+            //As far as we know, the fight is probably over. If another occurs, we'll turn this back on in 2 lines.
             isFighting = false;
-            StartCoroutine(MonkiFlip(opponent));
+            //Flip over the opponent's card, generating a new icon and symbol.
+            StartCoroutine(FlipCard(opponent));
+            //Check if there's a duplicate. If there is, we're going to start another fight, and thus set isFighting back to true.
             CheckFights();
+            //Put icons back on the buttons.
             GenerateIcons();
         }
-        else
+        else 
         {
-            GetComponent<KMBombModule>().HandleStrike();
+            Module.HandleStrike();
+            //Stop the timer. Again, if we start another fight, this'll get restarted.
             StopCoroutine(timer);
             Debug.LogFormat("[Anomia #{0}] Attempted to choose a module which did not fit the category. Strike incurred.", moduleId);
-            StartCoroutine(MonkiFlip(fighter));
+            //Flip over *our* card. Then check the duplicates and but the icons back on.
+            StartCoroutine(FlipCard(fighter));
             CheckFights();
             GenerateIcons();
         }
@@ -161,72 +184,98 @@ public class AnomiaScript : MonoBehaviour {
     {
         nextButton.AddInteractionPunch(1);
         Audio.PlayGameSoundAtTransform(KMSoundOverride.SoundEffect.ButtonPress, nextButton.transform);
-
-        if (moduleSolved || isAnimating.Any(x => x)) return;
+        //If the module is solved, or any card is flipping over, return here.
+        if (moduleSolved || isAnimating.Any(x => x)) 
+            return;
+        //If we're not in the middle of a fight, we can move onto the next stage.
         else if (!isFighting)
         {
-
-            if (stage == 12)
-            {
+            //If we're on the 12th stage, the module will solve now
+            if (stage == 12) 
                 StartCoroutine(Solve());
-                return;
+            else
+            {
+                //Note that the current stage % 4 is the player who the defuser will be controlling.
+                //Flip over the new card (generates a new symbol and rule)
+                StartCoroutine(FlipCard(stage % 4));
+                //Sets the new background to blue.
+                backings[stage % 4].GetComponent<MeshRenderer>().material = backingColors[1];
+                //Sets the background of the previous player back to gray.
+                backings[(stage + 3) % 4].GetComponent<MeshRenderer>().material = backingColors[0];
+                stage++;
+                Debug.LogFormat("[Anomia #{0}] ::STAGE {1}::", moduleId, stage); 
+                //Checks if the new flipped over card causes duplicates.
+                CheckFights();
+                GenerateIcons();
             }
-            StartCoroutine(MonkiFlip(stage % 4));
-            backings[stage % 4].GetComponent<MeshRenderer>().material = backingColors[1];
-            backings[(stage + 3) % 4].GetComponent<MeshRenderer>().material = backingColors[0];
-            stage++;
-            Debug.LogFormat("[Anomia #{0}] ::STAGE {1}::", moduleId, stage); 
-            CheckFights();
-            GenerateIcons();
         }
         else
         {
-            GetComponent<KMBombModule>().HandleStrike();
+            Module.HandleStrike();
             Debug.LogFormat("[Anomia #{0}] Arrow button pressed while a match was happening. Strike incurred.", moduleId);
         }
     }
 
     void GenerateIcons()
     {
+        //Shuffles the array of every sprite. 
         allModules.Shuffle();
         Sprite[] tempsprites = new Sprite[4];
-        for (int i = 0; i < 3; i++)
+        //Fills the first 3 entries of the array with random modules.
+        for (int i = 0; i < 3; i++) 
             tempsprites[i] = allModules[i];
-        if (isFighting) tempsprites[3] = allModules.Where(x => x != null && CheckValidity(opponent, x.name.Replace('_', '’'))).PickRandom();  
-        else tempsprites[3] = allModules[3]; //If we are in a match, makes sure at least one icon is valid. Otherwise, generate 4 random icons.
+        //If we are in a fight, make sure that the 4th entry is a valid module. Otherwise, just pick a module at random.
+        if (isFighting)
+            tempsprites[3] = allModules.Where(x => x != null && CheckValidity(opponent, x.name.Replace('_', '’'))).PickRandom();
+        else tempsprites[3] = allModules[3]; 
+        //Shuffle this new array so that the guaranteed valid module is at a random place.
         tempsprites.Shuffle();
         for (int i = 0; i < 4; i++)
             sprites[i].sprite = tempsprites[i];
 
+        //If we get a fight, log the valid modules.
         if (isFighting) 
         {
-            List<string> names = new List<string>();
+            List<string> validNames = new List<string>();
+            //Takes the names of the icons and checks their validity. If they are valid, add them to the list.
             for (int i = 0; i < 4; i++)
-            {
                 if (CheckValidity(opponent, SpriteNames(i)))
-                        names.Add(SpriteNames(i));
-            }
+                        validNames.Add(SpriteNames(i));
             Debug.LogFormat("[Anomia #{0}] The displayed module names are {1}, {2}, {3}, and {4}", moduleId, SpriteNames(0), SpriteNames(1), SpriteNames(2), SpriteNames(3));
-            Debug.LogFormat("[Anomia #{0}] The correct possible modules are {1}", moduleId, names.Join(", "));
+            Debug.LogFormat("[Anomia #{0}] The correct possible modules are {1}", moduleId, validNames.Join(", "));
         }
     }
 
     void CheckFights()
     {
+        //If there are not 4 unique symbols, i.e. there's a duplicate, enter a fight.
         if (symbolIndices.Distinct().Count() != 4)
         {
             isFighting = true;
             timer = StartCoroutine(Timer());
-            int duplicate = symbolIndices.Where(x => symbolIndices.Count(y => y == x) == 2).First(); // how tf does this line of code work I'm gonna hurl
+            //Gets the symbol which appears twice.
+            int duplicate = symbolIndices.Where(x => symbolIndices.Count(y => y == x) == 2).First(); 
+            //Sets the player who the defuser will play as.
             for (int i = 0; i < 4; i++)
             {
+                //Requires that +3 or else the clockwise movement will start one ahead of where it should.
                 int num = (i + stage + 3) % 4;
-                if (symbolIndices[num] == duplicate) { fighter = num; break; }
+                if (symbolIndices[num] == duplicate) 
+                { 
+                    fighter = num; 
+                    break; 
+                }
             }
+            //Sets the player who the defuser will go up against. This is the card whose rule we're using.
             for (int i = 0; i < 4; i++)
             {
                 int num = (i + stage + 3) % 4;
-                if (num != fighter && symbolIndices[num] == duplicate) { opponent = num; break; }
+                //The fighter and opponent cannot be the same, so skip over the fighter.
+                if (num != fighter && symbolIndices[num] == duplicate) 
+                { 
+                    opponent = num; 
+                    break; 
+                }
             }
             Debug.LogFormat("[Anomia #{0}] A match has started between the {1} player and the {2} player.", moduleId, directions[fighter], directions[opponent]);
         }
@@ -235,21 +284,22 @@ public class AnomiaScript : MonoBehaviour {
 
     bool CheckValidity(int cardNum, string input)
     {
-        name = input.ToUpper();
+        string name = input.ToUpperInvariant();
+        //Looks at the rule of the entered card.
         switch (stringIndices[cardNum])
         {
-            case 0: if (vowels.Contains(name.First())) return true; break;
-            case 1: if (vowels.Contains(name.Last()))  return true; break;
-            case 2: if (name.Contains(' ')) return true; break;
-            case 3: if (name.Last() == 'S') return true; break;
-            case 4: if (!name.Contains('E')) return true; break;
-            case 5: if (!name.Contains(' ')) return true; break;
-            case 6: if ("ABCDEFGHIJKLM".Contains(name.First())) return true; break;
-            case 7: if ("ABCDEFGHIJKLM".Contains(name.Last())) return true; break;
-            case 8: if (name.Where(x => alphabet.Contains(x)).Distinct().Count() != name.Where(x => alphabet.Contains(x)).Count()) return true; break;
-            case 9: if (name.Where(x => alphabet.Contains(x)).Distinct().Count() == name.Where(x => alphabet.Contains(x)).Count()) return true; break;
+            case 0: return vowels.Contains(name.First()); //First letter is vowel
+            case 1: return vowels.Contains(name.Last()); //Last letter is vowel
+            case 2: return name.Contains(' '); //Contains a space
+            case 3: return name.Last() == 'S'; //Last letter is S
+            case 4: return !name.Contains('E'); //Does not contain an E
+            case 5: return !name.Contains(' '); //Contains no spaces.
+            case 6: return "ABCDEFGHIJKLM".Contains(name.First()); //First letter is A-M
+            case 7: return "ABCDEFGHIJKLM".Contains(name.Last()); //Last letter is A-M
+            case 8: return name.Count(x => char.IsLetter(x)) < 8; //Name is <8 letters long.    Requires filtering by only letters or else spaces and other stuff will count.
+            case 9: return name.Count(x => char.IsLetter(x)) > 10; //Name is >10 letters long.  
+            default: throw new ArgumentOutOfRangeException("stringIndices[cardNum]");
         }
-        return false;
     }
 
     IEnumerator Solve()
@@ -257,56 +307,89 @@ public class AnomiaScript : MonoBehaviour {
         moduleSolved = true;
         for (int i = 0; i < 4; i++)
         {
-            StartCoroutine(MonkiFlip(i));
+            //Flips each card over.
+            StartCoroutine(FlipCard(i));
+            //Gets an index, which refers to either the front (i) or back (i + 4) of the card.
             int cardFace = showingBack[i] ? i + 4 : i;
+            //Clears the text and symbol of the chosen face..
             texts[cardFace].text = string.Empty;
             symbols[cardFace].sprite = null;
+            //Unrelated to the cards; clears the icon buttons.
             sprites[i].sprite = null;
         }
         yield return new WaitForSeconds(0.5f);
-        GetComponent<KMBombModule>().HandlePass();
+        Module.HandlePass();
         Audio.PlaySoundAtTransform("Solve", transform);
+        //Turns each backing green.
         for (int i = 0; i < 4; i++)
             backings[i].GetComponent<MeshRenderer>().material = backingColors[2];
     }
 
-    IEnumerator MonkiFlip(int pos)
+    IEnumerator FlipCard(int pos)
     {
-        if (isAnimating[pos]) yield break;
+        if (isAnimating[pos]) 
+            yield break;
         isAnimating[pos] = true;
         Audio.PlaySoundAtTransform("Flip", cards[pos].transform);
+        //Retrieves an index of the card face. Faces are in order UP-FRONT, RIGHT-FRONT, DOWN-FRONT, LEFT-FRONT, UP-BACK, RIGHT-BACK, DOWN-BACK, LEFT-BACK
+        //If the card is currently showing its back, we should change the front, and vice versa.
         int faceAffected = showingBack[pos] ? pos : pos + 4;
+        //If we are on the initial stage, use the values from `numbers`, which contains no duplicates. Otherwise, just use a random number.
         symbolIndices[pos] = (stage == 0) ? numbers[pos] : UnityEngine.Random.Range(0, 8);
+        //Sets the rule of the card to a random one.
         stringIndices[pos] = UnityEngine.Random.Range(0, allTexts.Length);
+
+        //Sets the text and symbol of the card to the rule & symbol.
         texts[faceAffected].text = allTexts[stringIndices[pos]];
         symbols[faceAffected].sprite = allSymbols[symbolIndices[pos]];
-        if (stage != 0 && !moduleSolved) Debug.LogFormat("[Anomia #{0}] The {1} card flipped over. Its symbol is {2} and its message is {3}", moduleId, directions[pos], allSymbols[symbolIndices[pos]].name, allTexts[stringIndices[pos]].Replace('\n',' '));
+
+        if (stage != 0 && !moduleSolved) 
+            Debug.LogFormat("[Anomia #{0}] The {1} card flipped over. Its symbol is {2} and its message is {3}", 
+                moduleId, directions[pos], allSymbols[symbolIndices[pos]].name, allTexts[stringIndices[pos]].Replace('\n',' '));
+
         isAnimating[pos] = true;
         showingBack[pos] = !showingBack[pos];
         Transform TF = cards[pos].transform;
-        while (TF.localPosition.z > -6)
+
+        //Sets up variables. rotation variables depend on which face is being shown.
+        Vector3 startRot = (showingBack[pos] ? 360 : 180) * Vector3.up;
+        Vector3 endRot =   (showingBack[pos] ? 180 : 0) * Vector3.up;
+        Vector3 startPos = TF.localPosition;
+        //height of the card
+        const float endpos = -6;
+
+        //Length of the flip animation
+        const float duration = 0.75f;
+        //Equal to the process along the animation between 0-1
+        float delta = 0;
+        while (delta < 1)
         {
-            TF.localPosition -= new Vector3(0, 0, flipSpeed * Time.deltaTime);
-            TF.localEulerAngles -= new Vector3(0, 15 * flipSpeed * Time.deltaTime, 0);
+            delta += Time.deltaTime / duration;
+            TF.localPosition = new Vector3(startPos.x, startPos.y, InOutLerp(startPos.z, endpos, delta));
+            TF.localEulerAngles = Vector3.Lerp(startRot, endRot, delta);
             yield return null;
         }
-        while (TF.localPosition.z + 10*Time.deltaTime < -0.05f)
-        {
-            TF.localPosition += new Vector3(0, 0, flipSpeed * Time.deltaTime);
-            TF.localEulerAngles -= new Vector3(0, 15 * flipSpeed * Time.deltaTime, 0);
-            yield return null;
-        }
-        TF.localPosition = new Vector3(0, 0, -0.05f);
-        TF.localEulerAngles = new Vector3(0, showingBack[pos] ? 180 : 0, 0);
         isAnimating[pos] = false;
     }
-
+    //Lerp method that goes from 0-1 then 1-0. If the graph of Lerp is f(x)= x, then this is f(x)= -|2x-1|+1
+    private float InOutLerp(float start, float end, float t)
+    {
+        if (t < 0)
+            t = 0;
+        if (t > 1)
+            t = 1;
+        if (t <= 0.5)
+            return Mathf.Lerp(start, end, t * 2);
+        else return Mathf.Lerp(end, start, t * 2 - 1);
+    }
     IEnumerator Timer()
     {
         float currentTime = 0f;
+        //Used to determine if we've made the warning noise yet.
         bool playedWarning = false;
         while (true)
         {
+            //If the lights are off, don't progress the timer.
             if (lightsAreOn)
                 currentTime += Time.deltaTime;
             if (currentTime > timeLimit - warning && !playedWarning)
@@ -314,19 +397,20 @@ public class AnomiaScript : MonoBehaviour {
                 Audio.PlaySoundAtTransform("Warning", transform);
                 playedWarning = true;
             }
+            //If the elapsed time has past the time limit, we've ran out of time.
             if (currentTime > timeLimit)
             {
                 StopCoroutine(timer);
-                GetComponent<KMBombModule>().HandleStrike();
+                Module.HandleStrike();
                 Debug.LogFormat("[Anomia #{0}] Timer expired, strike incurred.", moduleId);
-                StartCoroutine(MonkiFlip(fighter));
+                StartCoroutine(FlipCard(fighter));
                 CheckFights();
                 GenerateIcons();
             }
             yield return null;
         }
     }
-    
+    //Gets the name of the icon on a certain icon button.
     string SpriteNames(int pos)
     {
         return sprites[pos].sprite.name.Replace('_', '’');
@@ -335,24 +419,25 @@ public class AnomiaScript : MonoBehaviour {
     #pragma warning disable 414
     private readonly string TwitchHelpMessage = @"Use !{0} press 1/2/3/4 to press the button in that position in reading order. Use {0} next to press the arrow buton. On TP, the timer is extended to 30 seconds.";
     #pragma warning restore 414
-
+    IEnumerator Press(KMSelectable btn, float delay)
+    {
+        btn.OnInteract();
+        yield return new WaitForSeconds(delay);
+    }
     IEnumerator ProcessTwitchCommand (string input)
     {
-        Debug.Log(timeLimit);
-        string Command = input.Trim().ToUpperInvariant();
-        List<string> parameters = Command.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+        input = input.Trim().ToUpperInvariant();
+        List<string> parameters = input.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         string[] possibleCommands = { "1", "2", "3", "4", "TL", "TR", "BL", "BR" };
-        if (Regex.IsMatch(Command, @"^(PRESS)?\s*([1-4]|([TB][LR]))$"))
+        if (Regex.IsMatch(input, @"^(PRESS)?\s*([1-4]|([TB][LR]))$"))
         {
             yield return null;
-            iconButtons[Array.IndexOf(possibleCommands, parameters.Last()) % 4].OnInteract();
-            yield return new WaitForSeconds(0.1f);
+            yield return Press(iconButtons[Array.IndexOf(possibleCommands, parameters.Last()) % 4], 0.1f);
         }
-        else if (Command == "NEXT")
+        else if (input == "NEXT")
         {
             yield return null;
-            nextButton.OnInteract();
-            yield return new WaitForSeconds(0.1f);
+            yield return Press(nextButton, 0.1f);
         }
     }
 
@@ -364,20 +449,11 @@ public class AnomiaScript : MonoBehaviour {
             {
                 while (isAnimating.Any(x => x)) 
                     yield return true;
-                nextButton.OnInteract();
-                yield return new WaitForSeconds(0.1f);
+                yield return Press(nextButton, 0.1f);
             }
             else
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    if (CheckValidity(opponent, SpriteNames(i)))
-                    {
-                        iconButtons[i].OnInteract();
-                        yield return new WaitForSeconds(0.1f);
-                    }
-                }
-            }
+                //Presses the first icon button which has a valid icon.
+                yield return Press(iconButtons[Enumerable.Range(0, 4).First(num => CheckValidity(opponent, SpriteNames(num)))], 0.1f);
             yield return null;
         }
     }
