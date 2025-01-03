@@ -226,7 +226,7 @@ public class AnomiaScript : MonoBehaviour {
             tempsprites[i] = allModules[i];
         //If we are in a fight, make sure that the 4th entry is a valid module. Otherwise, just pick a module at random.
         if (isFighting)
-            tempsprites[3] = allModules.Where(x => x != null && CheckValidity(opponent, x.name.Replace('_', '’'))).PickRandom();
+            tempsprites[3] = allModules.Where(x => x != null && CheckValidity(opponent, x.name.Replace('_', 'ï¿½'))).PickRandom();
         else tempsprites[3] = allModules[3]; 
         //Shuffle this new array so that the guaranteed valid module is at a random place.
         tempsprites.Shuffle();
@@ -413,7 +413,7 @@ public class AnomiaScript : MonoBehaviour {
     //Gets the name of the icon on a certain icon button.
     string SpriteNames(int pos)
     {
-        return sprites[pos].sprite.name.Replace('_', '’');
+        return sprites[pos].sprite.name.Replace('_', 'ï¿½');
     }
 
     #pragma warning disable 414
@@ -427,17 +427,15 @@ public class AnomiaScript : MonoBehaviour {
     IEnumerator ProcessTwitchCommand (string input)
     {
         input = input.Trim().ToUpperInvariant();
-        List<string> parameters = input.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries).ToList();
         string[] possibleCommands = { "1", "2", "3", "4", "TL", "TR", "BL", "BR" };
-        if (Regex.IsMatch(input, @"^(PRESS)?\s*([1-4]|([TB][LR]))$"))
-        {
-            yield return null;
-            yield return Press(iconButtons[Array.IndexOf(possibleCommands, parameters.Last()) % 4], 0.1f);
-        }
-        else if (input == "NEXT")
-        {
+        Match m = Regex.Match(input, @"^(PRESS\s+)?([1-4]|[TB][LR])$");
+        if (input == "NEXT") {
             yield return null;
             yield return Press(nextButton, 0.1f);
+        } else if (m.Success) {
+            int selectedBtn = Array.IndexOf(possibleCommands, m.Groups[2].Value) % 4;
+            yield return null;
+            yield return Press(iconButtons[selectedBtn], 0.1f);
         }
     }
 
@@ -451,10 +449,16 @@ public class AnomiaScript : MonoBehaviour {
                     yield return true;
                 yield return Press(nextButton, 0.1f);
             }
-            else
+            else {
                 //Presses the first icon button which has a valid icon.
-                yield return Press(iconButtons[Enumerable.Range(0, 4).First(num => CheckValidity(opponent, SpriteNames(num)))], 0.1f);
-            yield return null;
+                int validBtn = -1;
+                for (int i = 0; i < 4; i++) {
+                    if (CheckValidity(opponent, SpriteNames(i)))
+                        validBtn = i;
+                }
+                yield return Press(iconButtons[validBtn], 0.1f);
+                yield return null;
+            }
         }
     }
 }
